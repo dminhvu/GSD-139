@@ -1,13 +1,12 @@
-import streamlit as st
-import pandas as pd
 import io
 
-# ── UI setup ────────────────────────────────────────────────────────────────
+import pandas as pd
+import streamlit as st
+
 st.set_page_config(page_title="GSD-139: Nuvo")
 st.title("GSD-139: Nuvo")
 
 
-# ── Core processing function ───────────────────────────────────────────────
 def process_file(file):
     # 1. Read incoming file
     if file.name.lower().endswith(".csv"):
@@ -33,13 +32,13 @@ def process_file(file):
         "Profit Center",
         "Amount in Company Code Currency",
         "Invoice Type",
+        "Posting Date",
     }
     missing = required - set(df.columns)
     if missing:
         st.error(f"Missing required columns: {', '.join(missing)}")
         return None
 
-    # ── New ledger‑format steps ───────────────────────────────────────────────
     # Step 1: Extract numeric balance from Column G
     df["Document Balance"] = (
         df["Amount in Company Code Currency"]
@@ -66,21 +65,22 @@ def process_file(file):
         df["Customer"].astype(str) + "_" + df["Invoice Type"].astype(str)
     )
 
-    # 4. Select and reorder only the four ledger columns
+    # Step 5: Format Document Date from Posting Date
+    df["Document Date"] = pd.to_datetime(df["Posting Date"]).dt.strftime("%d/%m/%Y")
+
+    # Select and reorder the ledger columns
     result_df = df[
-        ["Debtor Reference", "Transaction Type", "Document Number", "Document Balance"]
+        ["Debtor Reference", "Transaction Type", "Document Number", "Document Date", "Document Balance"]
     ].reset_index(drop=True)
 
     return result_df
 
 
-# ── Download helper ────────────────────────────────────────────────────────
 def get_csv_download_link(df):
     csv = df.to_csv(index=False)
     return io.BytesIO(csv.encode())
 
 
-# ── Streamlit app flow ─────────────────────────────────────────────────────
 st.write("Upload your Excel or CSV file:")
 uploaded_file = st.file_uploader("Choose a file", type=["csv", "xlsx", "xls"])
 
